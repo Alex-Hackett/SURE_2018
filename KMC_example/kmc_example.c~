@@ -1,0 +1,194 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <time.h>
+
+#define NUM_SITES 2400
+#define NUM_STEPS 64000L
+
+#define RATE_A2B 1.0
+#define RATE_B2A 5.0
+
+#define FLAG_SEED_RANDOM 0
+
+/** Define a structure containing the important vars, to make function arguments and data persistence cleaner. **/
+struct KMC_Struct {
+  int num_sites;
+  int site[NUM_SITES];
+  int prod[NUM_SITES];
+  long mcs;
+  double rate[NUM_SITES], rate_sum;
+  double t;
+  double pct_B, pct_B_avg;
+  double rand_rate, rand_time;
+};
+
+void initialize_system(struct KMC_Struct *kmc_data);
+double compute_rate_sum(struct KMC_Struct *kmc_data);
+int choose_site(struct KMC_Struct *kmc_data);
+void execute_transition(struct KMC_Struct *kmc_data, int i);
+double compute_time_increment(struct KMC_Struct *kmc_data);
+double compute_pct_B(struct KMC_Struct *kmc_data);
+void print_status(struct KMC_Struct *kmc_data);
+
+int main(int argc, char **argv)
+{
+  int i;
+  struct KMC_Struct kmc_data;
+
+/** Initialize the system configuration and the event space. **/
+  initialize_system(&kmc_data);
+
+/** Evolve the system. **/
+  for (kmc_data.mcs = 1L; kmc_data.mcs <= NUM_STEPS; kmc_data.mcs += 1L) {
+    kmc_data.pct_B_avg += (kmc_data.pct_B = compute_pct_B(&kmc_data));
+    print_status(&kmc_data);
+    kmc_data.rate_sum = compute_rate_sum(&kmc_data);
+    i = choose_site(&kmc_data);
+    execute_transition(&kmc_data, i);
+
+    kmc_data.t += compute_time_increment(&kmc_data);
+  }
+  
+  kmc_data.pct_B_avg /= NUM_STEPS;
+  
+  printf("# ---\n");
+  printf("# --- Simulation Summary:\n");
+  printf("# --- Average Concentration of A States = %f%%\n",
+	 100.0 - (kmc_data.pct_B_avg));
+  printf("# --- Average Concentration of B States = %f%%\n",
+	 kmc_data.pct_B_avg);
+  printf("# --- Average Ratio of A/B States = %f\n",
+	 (100.0 - (kmc_data.pct_B_avg)) / (kmc_data.pct_B_avg));
+  printf("# --- Ratio of A/B Production Rates = %f\n",
+	 RATE_B2A / RATE_A2B);
+  return(0);
+}
+
+/** Function to initialize the system configuration and the event space **/
+void initialize_system(struct KMC_Struct *kmc_data)
+{
+  int i;
+#if (FLAG_SEED_RANDOM)
+
+  srandom((unsigned long) time((time_t *) NULL));
+#endif
+
+  kmc_data->num_sites = NUM_SITES;
+  kmc_data->t = 0.0;
+  kmc_data->pct_B_avg = 0.0;
+  kmc_data->rand_rate = 0.0;
+  kmc_data->rand_time = 0.0;
+  
+  /** Set up the system with all A (0) states **/
+  for (i = 0; i < kmc_data->num_sites; i++) kmc_data->site[i] = 0;
+  /** Set up product list with all B (1) states **/
+  for (i = 0; i < kmc_data->num_sites; i++) kmc_data->prod[i] = 1;
+  /** Set up rate list with rate of A to B transition **/
+  for (i = 0; i < kmc_data->num_sites; i++) kmc_data->rate[i] = RATE_A2B;
+  
+  return;
+}
+
+/** Function to compute the sum of all available transition rate **/
+double compute_rate_sum(struct KMC_Struct *kmc_data)
+{
+  int i;
+  double rate_sum;
+  rate_sum = 0.0;
+  for (i = 0; i < kmc_data->num_sites; i++) rate_sum += kmc_data->rate[i];
+  return(rate_sum);
+}
+
+/** Functio to select a transition to perform w/ probability according to transition rate **/
+int choose_site(struct KMC_Struct *kmc_data)
+{
+  int i;
+  double rate_cum;
+  
+  kmc_data->rand_rate = 1.0*random()/RAND_MAX;
+  i = 0;
+  rate_cum = kmc_data->rate[i];
+  while (rate_cum <= (kmc_data->rate_sum)*(kmc_data->rand_rate))
+    rate_cum += kmc_data->rate[++i];
+
+  return(i);
+}
+
+/** Function to modify the system and event space **/
+void execute_transition(struct KMC_Struct *kmc_data, int i)
+{
+  int site_copy;
+ 
+  site_copy = kmc_data->site[i];
+  kmc_data->site[i] = kmc_data->prod[i];
+  kmc_data->prod[i] = site_copy;
+  kmc_data->rate[i] = (kmc_data->prod[i] == 0) ? RATE_B2A : RATE_A2B;
+
+  return;
+}
+
+/** Function to compute the time increment **/
+double compute_time_increment(struct KMC_Struct *kmc_data)
+{
+  double dt;
+
+  kmc_data->rand_time = 0.0;
+  while (kmc_data->rand_time == 0.0)
+    kmc_data->rand_time = 1.0*random()/RAND_MAX;
+  dt = - log (kmc_data->rand_time) / kmc_data->rate_sum;
+
+  return(dt);
+}
+
+/** Function to compute the percentage of B states in the system **/
+double compute_pct_B(struct KMC_Struct *kmc_data)
+{
+  int i, num_B;
+  double pct_B;
+
+  num_B = 0;
+  for (i = 0; i < kmc_data->num_sites; i++)
+    if (kmc_data->site[i] == 1)
+      num_B++;
+  pct_B = 100.0*num_B/(kmc_data->num_sites);
+
+  return(pct_B);
+}
+
+/** Function to print the status of the simulation **/
+void print_status(struct KMC_Struct *kmc_data)
+{
+  static int flag_is_first_time = 1;
+  int i;
+
+  if (flag_is_first_time) {
+    printf("# %s %s %s %s %s\n",
+	   "Time","[B]%",
+	   "rand_rate","rand_time",
+	   (kmc_data->num_sites <= 26) ? "Domain" : "");
+    printf("# %s %s %s %s %s\n",
+	   " ---- ", " ---- ",
+	   "---------","---------",
+	   (kmc_data->num_sites <= 26) ? "------" : "");
+    flag_is_first_time = 0;
+  }
+
+  printf("%E %E %E %E ",
+	 kmc_data->t, kmc_data->pct_B,
+	 kmc_data->rand_rate, kmc_data->rand_time);
+
+  /** Don't exceed 80 characters, in case we need to print out a tape or something crazy like that **/
+  if (kmc_data->num_sites <= 26) {
+    for (i = 0; i < kmc_data->num_sites; i++)
+      printf("%c", (kmc_data->site[i] == 0) ? 'A' : 'B');
+  }
+  printf("\n");
+  
+  return;
+}
+
+
+
+    
+
