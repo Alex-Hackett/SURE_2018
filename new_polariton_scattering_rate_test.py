@@ -91,7 +91,7 @@ def XFrac(rabi, pol_E):
     dispersion function to acquire this)
     '''
     
-    return 2/(np.sqrt(4 + (((pol_E)/(rabi)))**2))
+    return 2/(np.sqrt(4 + (abs((pol_E)/(rabi)))**2))
 
 
 def IPar(delta_k, m_e, m_h, a_b, e_or_h):
@@ -120,8 +120,8 @@ def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, 
     TODO, Tuesday. test this, attempt to obtain results from kinetic 
     MC paper
     '''
-    d_k = abs(k1 - k2)
-    first_term = L**2 / (rho * u * V)
+    d_k = k1 - k2
+    first_term = (4*np.pi/hbar) * (lz/(2*np.pi)) * (hbar/(2*rho*V))
     second_term = ((abs(d_k))**2 + qz**2)/(abs(hbar * u * qz))
     pol_E_k1, dum = PDis(k1, lz, 1, n0, rabi, omega_ex_0)
     pol_E_k2, dum = PDis(k2, lz, 1, n0, rabi, omega_ex_0)
@@ -129,6 +129,9 @@ def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, 
     X_2 = XFrac(rabi, pol_E_k2)
     exciton_term = abs(X_1 * X_2)
     
+    #en = ((omega_ex_0 + (1e-4 * k1**2)) * hbar) - ((omega_ex_0 + (1e-4 * k2**2)) * hbar)
+    
+    #exciton_term  =  abs(en * (np.exp((-abs(en))/(300*8.6173303e-5)) - 1)**(-1))
     perp_e = IPerp(qz, lz)
     par_e = IPar(d_k, m_e, m_h, a_b, 'e')
     perp_h = perp_e
@@ -136,11 +139,11 @@ def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, 
     
     integral_term = ((a_e * par_e * perp_e) - (a_h * par_h * perp_h))**2
     
-    return first_term * second_term * exciton_term * integral_term
+    return (first_term * second_term * exciton_term * integral_term)
 
 
 #Defining Constants according to KMC paper
-    
+temp = 300
 omega_ex_0 = (1.557) #Zero Momentum Exciton Freq (eV)
 rabi = (10 * 1e-3) #Rabi Splitting (eV)
 n0 = 3.857 #Refractive Index of GaAs
@@ -163,16 +166,16 @@ rates = np.zeros((len(k1),len(k2)), dtype = float) #Array to hold rates
 
 for i in range(len(k2)):
     for j in range(len(k1)):
-        qz = abs(abs(k1[j]) - abs(k2[i]))
-        #omega_k2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        #omega_k1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        #qz = np.sqrt(abs(((abs(omega_k1) - abs(omega_k2))/(u))**2 - (abs(k1[j]) - abs(k2[i]))**2))
+        #qz = (abs(k1[j]) - abs(k2[i]))
+        omega_k2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+        omega_k1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+        qz = np.sqrt(abs(((abs(omega_k1) - abs(omega_k2))/(hbar*u))**2 - (abs(k1[j]) - abs(k2[i]))**2))
         rate = scatter_rate(qz, omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
         #rate, error = integrate.quad(scatter_rate, -abs(k1[j] - k2[i]), abs(k1[j] - k2[i]), args = (omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V))
         if np.isnan(rate):
             rate = 0
         else:
-            rates[j,i] = rate * hbar * 1e-12
+            rates[i,j] = rate * hbar# * 1e-12
         #print(i,'/',len(k2) - 1)
         #print(j,'/',len(k1))
     print(i,'/',len(k2) - 1)
@@ -218,6 +221,7 @@ E1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
 
 
     
+
 
 
 
