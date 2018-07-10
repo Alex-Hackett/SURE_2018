@@ -9,6 +9,7 @@ dispersions as a function of energy from the in plane wavevector
 and other parameters
 and the excitionic fraction
 """
+import sympy as sy
 import scipy as sp
 import os
 import astropy as ap
@@ -120,6 +121,8 @@ def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, 
     TODO, Tuesday. test this, attempt to obtain results from kinetic 
     MC paper
     '''
+    
+    
     d_k = abs(k1 - k2)
     first_term = L**2 / (rho * u * V)
     second_term = ((abs(d_k))**2 + qz**2)/(abs(hbar * u * qz))
@@ -138,86 +141,90 @@ def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, 
     
     return first_term * second_term * exciton_term * integral_term
 
+def makeqz(theta,k1,k2):
+    d_k_par_sq = k1**2 +k2**2 - (2*k1*k2*np.cos(theta))
+    qz = np.sqrt((k1-k2)**2 - d_k_par_sq)
+    return qz
 
-#Defining Constants according to KMC paper
+def maketheta_max(k1,k2):
+    cos_t_max  = (k1**2 + k2**2 - (k1-k2)**2)/(2*k1*k2)
+    if cos_t_max > 1:
+        cos_t_max = 1
+    if cos_t_max < -1:
+        cos_t_max = -1
+    return (cos_t_max)
     
-omega_ex_0 = (1.557) #Zero Momentum Exciton Freq (eV)
-rabi = (10 * 1e-3) #Rabi Splitting (eV)
-n0 = 3.857 #Refractive Index of GaAs
 
 
-L = 8e-6 #Microcavity Length
-lz = 10e-9 #Quantum Well Width
-u = 3350 #Speed of sound in the cavity
-rho = 5318 #Density of GaAs
-m_h = 0.18 * 9.10938356e-31 #Hole effective mass
-m_e = 0.067 * 9.10938356e-31 #Electron effective mass
-a_b = 10e-9 #Exciton Bohr radius
-a_h = 2.7 #Hole Lattice deformation constant (eV)
-a_e = -7 #Electron lattice deformation constant (eV)
-V = np.pi * lz * (L)**2 #QW Effective volume
-k2 = np.linspace(-10,10,41) * 1e6 #Incoming Wavevector
-k1 = np.linspace(-10,10,41) * 1e6 #Outgoing wavevector
-rates = np.zeros((len(k1),len(k2)), dtype = float) #Array to hold rates
+def rate_matrix(k1,k2):
 
-
-for i in range(len(k2)):
-    for j in range(len(k1)):
-        qz = abs(abs(k1[j]) - abs(k2[i]))
-        #omega_k2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        #omega_k1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        #qz = np.sqrt(abs(((abs(omega_k1) - abs(omega_k2))/(u))**2 - (abs(k1[j]) - abs(k2[i]))**2))
-        rate = scatter_rate(qz, omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
-        #rate, error = integrate.quad(scatter_rate, -abs(k1[j] - k2[i]), abs(k1[j] - k2[i]), args = (omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V))
-        if np.isnan(rate):
-            rate = 0
-        else:
-            rates[j,i] = rate * hbar * 1e-12
+    #Defining Constants according to KMC paper
+    
+    omega_ex_0 = (1.557) #Zero Momentum Exciton Freq (eV)
+    rabi = (10 * 1e-3) #Rabi Splitting (eV)
+    n0 = 3.857 #Refractive Index of GaAs
+    
+    
+    L = 8e-6 #Microcavity Length
+    lz = 10e-9 #Quantum Well Width
+    u = 3350 #Speed of sound in the cavity
+    rho = 5318 #Density of GaAs
+    m_h = 0.18 * 9.10938356e-31 #Hole effective mass
+    m_e = 0.067 * 9.10938356e-31 #Electron effective mass
+    a_b = 10e-9 #Exciton Bohr radius
+    a_h = 2.7 #Hole Lattice deformation constant (eV)
+    a_e = -7 #Electron lattice deformation constant (eV)
+    V = np.pi * lz * (L)**2 #QW Effective volume
+    #k2 = np.linspace(0,10,2) * 1e6 #Incoming Wavevector
+    #k2 = np.zeros(len(k2))
+    #k1 = np.linspace(0,10,2) * 1e6 #Outgoing wavevector
+    rates = np.zeros((len(k1),len(k2)), dtype = float) #Array to hold rates
+    
+    
+    for i in range(len(k2)):
+        for j in range(len(k1)):
+            qz = abs(abs(k1[j]) - abs(k2[i]))
+            #max_theta = maketheta_max(k1[j],k2[i])
+            #omega_k2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+            #omega_k1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+            #qz = np.sqrt(abs(((abs(omega_k1) - abs(omega_k2))/(u))**2 - (abs(k1[j]) - abs(k2[i]))**2))
+            rate = scatter_rate(qz, omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
+            #rate, error = integrate.quad(scatter_rate, -abs(abs(k1[j])-abs(k2[i])), abs(abs(k1[j])-abs(k2[i])), args = (omega_ex_0, rabi, n0, (k1[j]), (k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V), limit = 2000)
+            if np.isnan(rate):
+                rate = 0
+            else:
+                rates[j,i] = rate * hbar * 1e-12
+            #print(i,'/',len(k2) - 1)
+            #print(j,'/',len(k1))
         #print(i,'/',len(k2) - 1)
-        #print(j,'/',len(k1))
-    print(i,'/',len(k2) - 1)
-
+    return rates
+    
+'''
 fig1 = plt.figure()
-plt.pcolor(k2, k1, ((rates)))#/(max(max(x) for x in rates)) * 256))
-plt.xlabel(r'$k_{2}$ ($m^{-1}$)')
-plt.ylabel(r'$k_{1}$ ($m^{-1}$)')
-plt.xlim(-10e6,10e6)
-plt.ylim(-10e6,10e6)
+plt.pcolor(k2 * 1e-6, k1*1e-6, ((rates * 1e9)))#/(max(max(x) for x in rates)) * 256))
+plt.xlabel(r'$k_{2}$ ($\mu m^{-1}$)')
+plt.ylabel(r'$k_{1}$ ($\mu m^{-1}$)')
+#plt.xlim(-10e6,10e6)
+#plt.ylim(-10e6,10e6)
 plt.title('Phonon-Polariton Scattering Rates')
 cbar = plt.colorbar()
-cbar.set_label('Scattering Rate (eV)')
-
-
+cbar.set_label('Scattering Rate (neV)')
 '''
-fig2 = plt.figure()
-energy_low_array = []
-energy_high_array = []
-k1 = np.linspace(-10,10,10000) * 1e6
-for q in k1:
-    energy_low, energy_high = PDis(q, lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-    energy_low_array.append(energy_low)
-    energy_high_array.append(energy_high)
-plt.plot(k1, energy_low_array, label = 'Lower Polariton Branch')
-plt.plot(k1, energy_high_array, label = 'Upper Polariton Branch')
-plt.legend()
-plt.xlabel(r'k, wavevector ($m^{-1}$)')
-plt.ylabel(r'Energy (eV)')
-plt.title('Polariton Dispertion Curve')
 '''
-
-
-
+fig1 = plt.figure()
+plt.plot(k1*1e-6, rates[:,0]*1e9)
+plt.xlabel(r'$k_{1}$ ($\mu m^{-1}$)')
+plt.ylabel(r'Scattering Rate (neV)')
+plt.title('Polariton-Phonon Scattering Rate to $|k|=0$ as a function of Wavevector')
+'''
+'''
 plt.show()
     
     
-'''
 E1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
         E2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
         qz = (((E2-E1)/(hbar*u))**2 - (k1[j]-k2[i])**2)**0.5
+
 '''
-
-
-    
-
 
 

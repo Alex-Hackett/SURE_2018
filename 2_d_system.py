@@ -91,7 +91,7 @@ def XFrac(rabi, pol_E):
     dispersion function to acquire this)
     '''
     
-    return 2/(np.sqrt(4 + (abs((pol_E)/(rabi)))**2))
+    return 2/(np.sqrt(4 + (((pol_E)/(rabi)))**2))
 
 
 def IPar(delta_k, m_e, m_h, a_b, e_or_h):
@@ -120,18 +120,17 @@ def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, 
     TODO, Tuesday. test this, attempt to obtain results from kinetic 
     MC paper
     '''
-    d_k = k1 - k2
-    first_term = (4*np.pi/hbar) * (lz/(2*np.pi)) * (hbar/(2*rho*V*u))
+    
+    
+    d_k = abs(k1 - k2)
+    first_term = L**2 / (rho * u * V)
     second_term = ((abs(d_k))**2 + qz**2)/(abs(hbar * u * qz))
     pol_E_k1, dum = PDis(k1, lz, 1, n0, rabi, omega_ex_0)
     pol_E_k2, dum = PDis(k2, lz, 1, n0, rabi, omega_ex_0)
     X_1 = XFrac(rabi, pol_E_k1)
     X_2 = XFrac(rabi, pol_E_k2)
-    exciton_term = abs(X_1 * X_2)**2
-    phonon_term = 1/(np.exp((hbar*u*np.sqrt(d_k**2 + qz**2))/(temp*8.6173303e-5)) - 1)
-    #en = ((omega_ex_0 + (1e-4 * k1**2)) * hbar) - ((omega_ex_0 + (1e-4 * k2**2)) * hbar)
+    exciton_term = abs(X_1 * X_2)
     
-    #exciton_term  =  abs(en * (np.exp((-abs(en))/(300*8.6173303e-5)) - 1)**(-1))
     perp_e = IPerp(qz, lz)
     par_e = IPar(d_k, m_e, m_h, a_b, 'e')
     perp_h = perp_e
@@ -139,11 +138,24 @@ def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, 
     
     integral_term = ((a_e * par_e * perp_e) - (a_h * par_h * perp_h))**2
     
-    return (first_term * second_term * exciton_term * integral_term*phonon_term)
+    return first_term * second_term * exciton_term * integral_term
 
+def makeqz(theta,k1,k2):
+    d_k_par_sq = k1**2 +k2**2 - (2*k1*k2*np.cos(theta))
+    qz = np.sqrt((k1-k2)**2 - d_k_par_sq)
+    return qz
+
+def maketheta_max(k1,k2):
+    cos_t_max  = (k1**2 + k2**2 - (k1-k2)**2)/(2*k1*k2)
+    if cos_t_max > 1:
+        cos_t_max = 1
+    if cos_t_max < -1:
+        cos_t_max = -1
+    return (cos_t_max)
+    
 
 #Defining Constants according to KMC paper
-temp = 300
+    
 omega_ex_0 = (1.557) #Zero Momentum Exciton Freq (eV)
 rabi = (10 * 1e-3) #Rabi Splitting (eV)
 n0 = 3.857 #Refractive Index of GaAs
@@ -159,56 +171,41 @@ a_b = 10e-9 #Exciton Bohr radius
 a_h = 2.7 #Hole Lattice deformation constant (eV)
 a_e = -7 #Electron lattice deformation constant (eV)
 V = np.pi * lz * (L)**2 #QW Effective volume
-k2 = np.linspace(-10,10,101) * 1e6 #Incoming Wavevector
-k1 = np.linspace(-10,10,101) * 1e6 #Outgoing wavevector
-rates = np.zeros((len(k1),len(k2)), dtype = float) #Array to hold rates
+k2_mod = np.linspace(-10,10,21) * 1e6 #Incoming Wavevector
+
+k1_mod = np.linspace(-10,10,21) * 1e6 #Outgoing wavevector
+rates = np.zeros((len(k1_mod),len(k2_mod)), dtype = float) #Array to hold rates
+
+for i in range(len(k1_mod)):
+    for j in range(len(k2_mod)):
+        q = abs(abs(k1_mod[i]) - abs(k2_mod[j]))
+        rate = scatter_rate(q,omega_ex_0, rabi, n0, abs(k1_mod[i]), abs(k2_mod[j]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
+        rates[i,j] = rate
+        
 
 
-for i in range(len(k2)):
-    for j in range(len(k1)):
-        #qz = (abs(k1[j]) - abs(k2[i]))
-        omega_k2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        omega_k1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        qz = np.sqrt(abs(((abs(omega_k2) - abs(omega_k1))/(u))**2 - abs(abs(k1[j]) - abs(k2[i]))**2))
-        #rate = scatter_rate(qz, omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
-        rate, error = integrate.quad(scatter_rate, -abs(k1[j] - k2[i]), abs(k1[j] - k2[i]), args = (omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V))
-        if np.isnan(rate):
-            rate = 0
-        else:
-            rates[i,j] = rate * hbar# * 1e-12
-        #print(i,'/',len(k2) - 1)
-        #print(j,'/',len(k1))
-    print(i,'/',len(k2) - 1)
+
+
+
+
 
 fig1 = plt.figure()
-plt.pcolor(k2, k1, ((rates)))#/(max(max(x) for x in rates)) * 256))
+plt.pcolor(k1_mod, k2_mod, rates)#/(max(max(x) for x in rates)) * 256))
 plt.xlabel(r'$k_{2}$ ($m^{-1}$)')
 plt.ylabel(r'$k_{1}$ ($m^{-1}$)')
-plt.xlim(-10e6,10e6)
-plt.ylim(-10e6,10e6)
+#plt.xlim(-10e6,10e6)
+#plt.ylim(-10e6,10e6)
 plt.title('Phonon-Polariton Scattering Rates')
 cbar = plt.colorbar()
 cbar.set_label('Scattering Rate (eV)')
 
-
 '''
-fig2 = plt.figure()
-energy_low_array = []
-energy_high_array = []
-k1 = np.linspace(-10,10,10000) * 1e6
-for q in k1:
-    energy_low, energy_high = PDis(q, lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-    energy_low_array.append(energy_low)
-    energy_high_array.append(energy_high)
-plt.plot(k1, energy_low_array, label = 'Lower Polariton Branch')
-plt.plot(k1, energy_high_array, label = 'Upper Polariton Branch')
-plt.legend()
-plt.xlabel(r'k, wavevector ($m^{-1}$)')
-plt.ylabel(r'Energy (eV)')
-plt.title('Polariton Dispertion Curve')
+fig1 = plt.figure()
+plt.plot(k1*1e-6, rates[:,0]*1e9)
+plt.xlabel(r'$k_{1}$ ($\mu m^{-1}$)')
+plt.ylabel(r'Scattering Rate (neV)')
+plt.title('Polariton-Phonon Scattering Rate to $|k|=0$ as a function of Wavevector')
 '''
-
-
 
 plt.show()
     
@@ -219,8 +216,6 @@ E1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
         qz = (((E2-E1)/(hbar*u))**2 - (k1[j]-k2[i])**2)**0.5
 '''
 
-
-    
 
 
 

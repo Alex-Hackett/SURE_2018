@@ -30,7 +30,7 @@ M = 1 #Mode of coupled Light
 c = 299792458 
 n0 = 3.9476 #Refective index of CAVITY
 qz = 2 * np.pi * M * (1/lz)
-omega_ex_0 = 1.557/hbar
+omega_ex_0 = (1.557)/hbar
 #omega_ex_0 = omega_ex_0/hbar
 rabi = 30 * 1e-3#Rabi splitting in eV
 #rabi = rabi/hbar
@@ -60,8 +60,9 @@ def P_dis(mod_k, lz, M, n0, rabi, omega_ex_0,upflag = 0):
     #omega_ex_0 = omega_ex_0/hbar
     #rabi = 30 * 1e-3#Rabi splitting in eV
     rabi = rabi/hbar
-    
-    omega_cav = c/n0 * np.sqrt(qz**2 + mod_k**2) #Cavity Mode dispersion
+    m_ph = (hbar*qz*n0)/c
+    omega_cav = 1/(hbar*(c/n0 * np.sqrt(qz**2 + mod_k**2))) * ((((hbar*mod_k)**2)/(2 * m_ph)))#Cavity Mode dispersion
+    omega_cav = omega_cav/hbar
     omega_ex = omega_ex_0 + (1e-4 * mod_k**2) #Exciton Dispersion
     
     #Lower Branch Polariton Dispersion
@@ -71,7 +72,7 @@ def P_dis(mod_k, lz, M, n0, rabi, omega_ex_0,upflag = 0):
     return omega_l*hbar, omega_u*hbar, omega_cav*hbar, omega_ex*hbar
 
 
-k_array = np.linspace(0,100,10000) * 1e6
+k_array = np.linspace(-4,4,10000)
 omega_array_l = np.zeros(len(k_array))
 omega_array_u = np.zeros(len(k_array))
 cavity_array = np.zeros(len(k_array))
@@ -83,11 +84,11 @@ for i in k_array:
     
     j += 1
 fig1 = plt.figure()
-plt.plot(k_array*1e-6,omega_array_l * 1e3, label = 'Lower Polariton Branch')
-plt.plot(k_array*1e-6,omega_array_u * 1e3, label = 'Upper Polarition Branch')
-plt.plot(k_array*1e-6,cavity_array * 1e3, label = 'Photon Dispersion')
-plt.plot(k_array*1e-6,exciton_array * 1e3, label = 'Exciton Dispersion')
-plt.xlabel(r'Wavevector |K| ($\mu m^{-1}$)')
+plt.plot(k_array,omega_array_l * 1e3, label = 'Lower Polariton Branch')
+#plt.plot(k_array*1e-6,omega_array_u * 1e3, label = 'Upper Polarition Branch')
+#plt.plot(k_array*1e-6,cavity_array * 1e3, label = 'Photon Dispersion')
+#plt.plot(k_array*1e-6,exciton_array * 1e3, label = 'Exciton Dispersion')
+plt.xlabel(r'Wavevector |K| ($m^{-1}$)')
 plt.ylabel(r'E (meV)')
 plt.legend()
 plt.title('Polariton Dispersion Curves')

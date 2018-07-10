@@ -17,7 +17,7 @@ from random import randrange, random, choice
 import os.path
 
 NUM_SITES = 64
-NUM_STEPS = 64000
+NUM_STEPS = 6400
 
 
 
@@ -145,7 +145,7 @@ class KMC:
         
 def main():
     phonons = []
-    for i in range(10):
+    for i in range(1):
         kmc = KMC(NUM_SITES, NUM_STEPS)
         kmc.initialize_system()
         kmc.evolve()
