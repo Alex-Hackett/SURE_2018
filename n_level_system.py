@@ -28,10 +28,11 @@ kb = 8.6173303e-5
 m0 = 9.10938356e-31
 u = 4810
 #--------------------------------------------------
-num_sites = 100
+num_sites = 50
 num_steps = 1000
 temp = 20
-k_values = np.linspace(0,100000,100)
+k_values = np.linspace(0,1000000,100)
+gamma = 10e-6 / hbar #Polariton Decay Rate in the Cavity
 
 class nLevelKMC:
     def __init__(self,num_sites,num_steps,temp,k_values):
@@ -91,7 +92,6 @@ class nLevelKMC:
         self.chosen_transition = [int(site/len(k_values)), int(site%len(k_values))]
         
     def executeEvent(self):
-        #valid_sites =  [self.sites.searchsorted(self.chosen_transition[0])]
         valid_sites = np.nonzero(np.in1d(self.sites,self.chosen_transition[0]))[0]
         chosen_site = choice(valid_sites)
         self.sites[chosen_site] = self.chosen_transition[1]
@@ -105,21 +105,31 @@ class nLevelKMC:
         
     def trackConfig(self):
         self.state_array.append(np.array(self.sites))
-        self.total_momentum.append(11111.111111111111 * np.array(self.sites.sum()))
+        self.total_momentum.append((max(k_values)/len(k_values)) * np.array(self.sites.sum()))
+    
+    def simulate(self):
+        self.initializeStates()
+        self.makeRateLookup()
+        self.stateCounter()
+        self.trackConfig()
+        for i in range(self.num_steps):
+            self.updateRates()
+            self.selectEvent()
+            self.executeEvent()
+            self.advanceTime()
+            if i < 10:
+                self.nonResPump(1)#int(random()*10))
+            self.stateCounter()
+            self.trackConfig()
+
+    def nonResPump(self, number):
+        for i in range(number):
+            self.sites = np.append(self.sites, (len(k_values))-1)
     
 kmc = nLevelKMC(num_sites,num_steps,temp,k_values)
-kmc.initializeStates()
-kmc.makeRateLookup()
-kmc.stateCounter()
-kmc.trackConfig()
+kmc.simulate()
 
-for i in range(kmc.num_steps):
-    kmc.updateRates()
-    kmc.selectEvent()
-    kmc.executeEvent()
-    kmc.advanceTime()
-    kmc.stateCounter()
-    kmc.trackConfig()
+
     
 e_loss = hbar*(u * kmc.total_momentum[-1])
 ans = str('Total Phonon Energy Absorbed = '+ str(e_loss) +' eV')
@@ -129,7 +139,7 @@ plt.plot(kmc.time_array,kmc.total_momentum)
 plt.title('Total Polariton Momentum of System wrt Time')
 plt.xlabel('Time (Seconds)')
 plt.ylabel(r'Total Momentum ($m^{-1}$)')
-#txt = plt.text(kmc.time_array[int(len(kmc.time_array)/5)], kmc.total_momentum[int(len(kmc.total_momentum)/5)],ans)
+
 plt.show()
 
         
