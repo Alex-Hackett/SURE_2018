@@ -9,14 +9,14 @@ dispersions as a function of energy from the in plane wavevector
 and other parameters
 and the excitionic fraction
 """
-
+import scipy as sp
 import os
 import astropy as ap
 from astropy.table import Table, Column, MaskedColumn
 from astropy.io import ascii
 import math
 import numpy as np
-import scipy as sp
+import scipy.integrate as integrate
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
@@ -51,7 +51,7 @@ def PDis(mod_k, lz, M, n0, rabi, omega_ex_0, upflag = 0):
     #rabi = 30 * 1e-3#Rabi splitting in eV
     rabi = rabi/hbar
     
-    omega_cav = c/n0 * np.sqrt(qz**2 + mod_k**2) #Cavity Mode dispersion
+    omega_cav = (c/n0) * np.sqrt(qz**2 + mod_k**2) #Cavity Mode dispersion
     omega_ex = omega_ex_0 + (1e-4 * mod_k**2) #Exciton Dispersion
     
     #Lower Branch Polariton Dispersion
@@ -90,6 +90,7 @@ def XFrac(rabi, pol_E):
     the rabi splitting and the polariton energy at some K (use the polarition
     dispersion function to acquire this)
     '''
+    
     return 2/(np.sqrt(4 + (abs((pol_E)/(rabi)))**2))
 
 
@@ -112,7 +113,7 @@ def IPerp(qz, lz):
     return (((np.pi)**2) * np.sin((qz*lz)/(2)))/(((qz*lz)/(2)) * (((np.pi)**2) - ((qz*lz)/(2))**2))
 
 
-def scatter_rate(omega_ex_0, rabi, n0, k1, k2, qz, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V):
+def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V):
     '''
     This is the main scattering function
     TODO, Monday, finish this
@@ -120,14 +121,17 @@ def scatter_rate(omega_ex_0, rabi, n0, k1, k2, qz, L, lz, u, rho, m_e, m_h, a_b,
     MC paper
     '''
     d_k = k1 - k2
-    first_term = L**2 / (rho * u * V)
+    first_term = (4*np.pi/hbar) * (lz/(2*np.pi)) * (hbar/(2*rho*V*u))
     second_term = ((abs(d_k))**2 + qz**2)/(abs(hbar * u * qz))
     pol_E_k1, dum = PDis(k1, lz, 1, n0, rabi, omega_ex_0)
     pol_E_k2, dum = PDis(k2, lz, 1, n0, rabi, omega_ex_0)
     X_1 = XFrac(rabi, pol_E_k1)
     X_2 = XFrac(rabi, pol_E_k2)
-    exciton_term = abs(X_1 * X_2)
+    exciton_term = abs(X_1 * X_2)**2
+    phonon_term = 1/(np.exp((hbar*u*np.sqrt(d_k**2 + qz**2))/(temp*8.6173303e-5)) - 1)
+    #en = ((omega_ex_0 + (1e-4 * k1**2)) * hbar) - ((omega_ex_0 + (1e-4 * k2**2)) * hbar)
     
+    #exciton_term  =  abs(en * (np.exp((-abs(en))/(300*8.6173303e-5)) - 1)**(-1))
     perp_e = IPerp(qz, lz)
     par_e = IPar(d_k, m_e, m_h, a_b, 'e')
     perp_h = perp_e
@@ -135,58 +139,78 @@ def scatter_rate(omega_ex_0, rabi, n0, k1, k2, qz, L, lz, u, rho, m_e, m_h, a_b,
     
     integral_term = ((a_e * par_e * perp_e) - (a_h * par_h * perp_h))**2
     
-    return first_term * second_term * exciton_term * integral_term
+    return (first_term * second_term * exciton_term * integral_term*phonon_term)
 
 
 #Defining Constants according to KMC paper
-    
-omega_ex_0 = (1.557 * 1e-3)/hbar
-rabi = (10 * 1e-3)/hbar
-n0 = 3.857
-k1 = 0
+temp = 300
+omega_ex_0 = (1.557) #Zero Momentum Exciton Freq (eV)
+rabi = (10 * 1e-3) #Rabi Splitting (eV)
+n0 = 3.857 #Refractive Index of GaAs
 
 
-L = 8e-6
-lz = 10e-9
-u = 3350
-rho = 5318
-m_h = 0.18 * 9.10938356e-31
-m_e = 0.067 * 9.10938356e-31
-a_b = 10e-9
-a_h = 2.7
-a_e = -7
-V = np.pi * lz * (L)**2
-V = 2*np.pi*L
-
-
-k2 = np.linspace(-100,100,7001) * 1e6
-k1 = np.linspace(-100,100,7001) * 1e6
-rates = np.zeros((len(k1),len(k2)), dtype = float)
+L = 8e-6 #Microcavity Length
+lz = 10e-9 #Quantum Well Width
+u = 3350 #Speed of sound in the cavity
+rho = 5318 #Density of GaAs
+m_h = 0.18 * 9.10938356e-31 #Hole effective mass
+m_e = 0.067 * 9.10938356e-31 #Electron effective mass
+a_b = 10e-9 #Exciton Bohr radius
+a_h = 2.7 #Hole Lattice deformation constant (eV)
+a_e = -7 #Electron lattice deformation constant (eV)
+V = np.pi * lz * (L)**2 #QW Effective volume
+k2 = np.linspace(-10,10,201) * 1e6 #Incoming Wavevector
+k1 = np.linspace(-10,10,201) * 1e6 #Outgoing wavevector
+rates = np.zeros((len(k1),len(k2)), dtype = float) #Array to hold rates
 
 
 for i in range(len(k2)):
     for j in range(len(k1)):
-        rate = 0
-        qz = abs(abs(k2[i]) - abs(k1[j]))
-        rate = scatter_rate(omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), qz, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
+        #qz = (abs(k1[j]) - abs(k2[i]))
+        omega_k2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+        omega_k1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+        qz = np.sqrt(abs(((abs(omega_k2) - abs(omega_k1))/(u))**2 - abs(abs(k1[j]) - abs(k2[i]))**2))
+        #rate = scatter_rate(qz, omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
+        rate, error = integrate.quad(scatter_rate, -abs(k1[j] - k2[i]), abs(k1[j] - k2[i]), args = (omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V))
         if np.isnan(rate):
             rate = 0
         else:
-            rates[i,j] = rate * hbar
+            rates[i,j] = rate * hbar# * 1e-12
         #print(i,'/',len(k2) - 1)
         #print(j,'/',len(k1))
     print(i,'/',len(k2) - 1)
-        
+
+fig1 = plt.figure()
 plt.pcolor(k2, k1, ((rates)))#/(max(max(x) for x in rates)) * 256))
 plt.xlabel(r'$k_{2}$ ($m^{-1}$)')
 plt.ylabel(r'$k_{1}$ ($m^{-1}$)')
+plt.xlim(-10e6,10e6)
+plt.ylim(-10e6,10e6)
 plt.title('Phonon-Polariton Scattering Rates')
 cbar = plt.colorbar()
 cbar.set_label('Scattering Rate (eV)')
-plt.show()
 
-    
-    
+
+'''
+fig2 = plt.figure()
+energy_low_array = []
+energy_high_array = []
+k1 = np.linspace(-10,10,10000) * 1e6
+for q in k1:
+    energy_low, energy_high = PDis(q, lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+    energy_low_array.append(energy_low)
+    energy_high_array.append(energy_high)
+plt.plot(k1, energy_low_array, label = 'Lower Polariton Branch')
+plt.plot(k1, energy_high_array, label = 'Upper Polariton Branch')
+plt.legend()
+plt.xlabel(r'k, wavevector ($m^{-1}$)')
+plt.ylabel(r'Energy (eV)')
+plt.title('Polariton Dispertion Curve')
+'''
+
+
+
+plt.show()
     
     
 '''
@@ -195,9 +219,9 @@ E1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
         qz = (((E2-E1)/(hbar*u))**2 - (k1[j]-k2[i])**2)**0.5
 '''
 
-    
 
     
+
 
 
 

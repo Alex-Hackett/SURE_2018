@@ -155,12 +155,12 @@ m_e = 0.067 * 9.10938356e-31
 a_b = 10e-9
 a_h = 2.7
 a_e = -7
-V = np.pi * lz * (L)**2
+#V = np.pi * lz * (L)**2
 V = 2*np.pi*L
 
 
-k2 = np.linspace(-100,100,7001) * 1e6
-k1 = np.linspace(-100,100,7001) * 1e6
+k2 = np.linspace(-10,10,7001) * 1e6
+k1 = np.linspace(-10,10,7001) * 1e6
 rates = np.zeros((len(k1),len(k2)), dtype = float)
 
 
@@ -176,15 +176,21 @@ for i in range(len(k2)):
         #print(i,'/',len(k2) - 1)
         #print(j,'/',len(k1))
     print(i,'/',len(k2) - 1)
-        
+
+'''   
 plt.pcolor(k2, k1, ((rates)))#/(max(max(x) for x in rates)) * 256))
 plt.xlabel(r'$k_{2}$ ($m^{-1}$)')
 plt.ylabel(r'$k_{1}$ ($m^{-1}$)')
+plt.xlim(-10,10)
+plt.ylim(-10,10)
 plt.title('Phonon-Polariton Scattering Rates')
 cbar = plt.colorbar()
 cbar.set_label('Scattering Rate (eV)')
 plt.show()
-
+'''
+filename = 'Data_Writing_Test.txt'
+data = Table([k1,k2,rates], names = ['k1_wavevector','k2_wavevector','Rates'])
+ascii.write(data,filename)
     
     
     

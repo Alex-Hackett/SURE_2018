@@ -9,14 +9,14 @@ dispersions as a function of energy from the in plane wavevector
 and other parameters
 and the excitionic fraction
 """
-
+import scipy as sp
 import os
 import astropy as ap
 from astropy.table import Table, Column, MaskedColumn
 from astropy.io import ascii
 import math
 import numpy as np
-import scipy as sp
+import scipy.integrate as integrate
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
@@ -51,7 +51,7 @@ def PDis(mod_k, lz, M, n0, rabi, omega_ex_0, upflag = 0):
     #rabi = 30 * 1e-3#Rabi splitting in eV
     rabi = rabi/hbar
     
-    omega_cav = c/n0 * np.sqrt(qz**2 + mod_k**2) #Cavity Mode dispersion
+    omega_cav = (c/n0) * np.sqrt(qz**2 + mod_k**2) #Cavity Mode dispersion
     omega_ex = omega_ex_0 + (1e-4 * mod_k**2) #Exciton Dispersion
     
     #Lower Branch Polariton Dispersion
@@ -90,7 +90,8 @@ def XFrac(rabi, pol_E):
     the rabi splitting and the polariton energy at some K (use the polarition
     dispersion function to acquire this)
     '''
-    return 2/(np.sqrt(4 + (abs((pol_E)/(rabi)))**2))
+    
+    return 2/(np.sqrt(4 + (((pol_E)/(rabi)))**2))
 
 
 def IPar(delta_k, m_e, m_h, a_b, e_or_h):
@@ -112,14 +113,16 @@ def IPerp(qz, lz):
     return (((np.pi)**2) * np.sin((qz*lz)/(2)))/(((qz*lz)/(2)) * (((np.pi)**2) - ((qz*lz)/(2))**2))
 
 
-def scatter_rate(omega_ex_0, rabi, n0, k1, k2, qz, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V):
+def scatter_rate(qz,omega_ex_0, rabi, n0, k1, k2, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V):
     '''
     This is the main scattering function
     TODO, Monday, finish this
     TODO, Tuesday. test this, attempt to obtain results from kinetic 
     MC paper
     '''
-    d_k = k1 - k2
+    
+    
+    d_k = abs(k1 - k2)
     first_term = L**2 / (rho * u * V)
     second_term = ((abs(d_k))**2 + qz**2)/(abs(hbar * u * qz))
     pol_E_k1, dum = PDis(k1, lz, 1, n0, rabi, omega_ex_0)
@@ -137,56 +140,78 @@ def scatter_rate(omega_ex_0, rabi, n0, k1, k2, qz, L, lz, u, rho, m_e, m_h, a_b,
     
     return first_term * second_term * exciton_term * integral_term
 
+def makeqz(theta,k1,k2):
+    d_k_par_sq = k1**2 +k2**2 - (2*k1*k2*np.cos(theta))
+    qz = np.sqrt((k1-k2)**2 - d_k_par_sq)
+    return qz
+
+def maketheta_max(k1,k2):
+    cos_t_max  = (k1**2 + k2**2 - (k1-k2)**2)/(2*k1*k2)
+    if cos_t_max > 1:
+        cos_t_max = 1
+    if cos_t_max < -1:
+        cos_t_max = -1
+    return (cos_t_max)
+    
 
 #Defining Constants according to KMC paper
     
-omega_ex_0 = (1.557 * 1e-3)/hbar
-rabi = (10 * 1e-3)/hbar
-n0 = 3.857
-k1 = 0
+omega_ex_0 = (1.557) #Zero Momentum Exciton Freq (eV)
+rabi = (10 * 1e-3) #Rabi Splitting (eV)
+n0 = 3.857 #Refractive Index of GaAs
 
 
-L = 8e-6
-lz = 10e-9
-u = 3350
-rho = 5318
-m_h = 0.18 * 9.10938356e-31
-m_e = 0.067 * 9.10938356e-31
-a_b = 10e-9
-a_h = 2.7
-a_e = -7
-V = np.pi * lz * (L)**2
-V = 2*np.pi*L
-
-
-k2 = np.linspace(-100,100,7001) * 1e6
-k1 = np.linspace(-100,100,7001) * 1e6
-rates = np.zeros((len(k1),len(k2)), dtype = float)
+L = 8e-6 #Microcavity Length
+lz = 10e-9 #Quantum Well Width
+u = 3350 #Speed of sound in the cavity
+rho = 5318 #Density of GaAs
+m_h = 0.18 * 9.10938356e-31 #Hole effective mass
+m_e = 0.067 * 9.10938356e-31 #Electron effective mass
+a_b = 10e-9 #Exciton Bohr radius
+a_h = 2.7 #Hole Lattice deformation constant (eV)
+a_e = -7 #Electron lattice deformation constant (eV)
+V = np.pi * lz * (L)**2 #QW Effective volume
+k2 = np.linspace(-10,10,21) * 1e6 #Incoming Wavevector
+#k2 = np.zeros(len(k2))
+k1 = np.linspace(-10,10,21) * 1e6 #Outgoing wavevector
+rates = np.zeros((len(k1),len(k2)), dtype = float) #Array to hold rates
 
 
 for i in range(len(k2)):
     for j in range(len(k1)):
-        rate = 0
-        qz = abs(abs(k2[i]) - abs(k1[j]))
-        rate = scatter_rate(omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), qz, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
+        #qz = makeqz((k1[j]),(k2[i]))
+        #max_theta = maketheta_max(k1[j],k2[i])
+        #omega_k2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+        #omega_k1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
+        #qz = np.sqrt(abs(((abs(omega_k1) - abs(omega_k2))/(u))**2 - (abs(k1[j]) - abs(k2[i]))**2))
+        #rate = scatter_rate(qz, omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
+        rate, error = integrate.quad(scatter_rate, -abs(k1[j]-k2[i]), abs(k1[j]-k2[i]), args = (omega_ex_0, rabi, n0, (k1[j]), (k2[i]), L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V), limit = 2000)
         if np.isnan(rate):
             rate = 0
         else:
-            rates[i,j] = rate * hbar
+            rates[j,i] = rate * hbar
         #print(i,'/',len(k2) - 1)
         #print(j,'/',len(k1))
     print(i,'/',len(k2) - 1)
-        
+
+fig1 = plt.figure()
 plt.pcolor(k2, k1, ((rates)))#/(max(max(x) for x in rates)) * 256))
 plt.xlabel(r'$k_{2}$ ($m^{-1}$)')
 plt.ylabel(r'$k_{1}$ ($m^{-1}$)')
+plt.xlim(-10e6,10e6)
+plt.ylim(-10e6,10e6)
 plt.title('Phonon-Polariton Scattering Rates')
 cbar = plt.colorbar()
 cbar.set_label('Scattering Rate (eV)')
-plt.show()
+'''
+fig1 = plt.figure()
+plt.plot(k1*1e-6, rates[:,0]*1e9)
+plt.xlabel(r'$k_{1}$ ($\mu m^{-1}$)')
+plt.ylabel(r'Scattering Rate (neV)')
+plt.title('Polariton-Phonon Scattering Rate to $|k|=0$ as a function of Wavevector')
+'''
 
-    
-    
+plt.show()
     
     
 '''
@@ -195,9 +220,7 @@ E1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
         qz = (((E2-E1)/(hbar*u))**2 - (k1[j]-k2[i])**2)**0.5
 '''
 
-    
 
-    
 
 
 

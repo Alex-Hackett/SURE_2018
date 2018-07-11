@@ -140,8 +140,8 @@ def scatter_rate(omega_ex_0, rabi, n0, k1, k2, qz, L, lz, u, rho, m_e, m_h, a_b,
 
 #Defining Constants according to KMC paper
     
-omega_ex_0 = (1.557 * 1e-3)/hbar
-rabi = (10 * 1e-3)/hbar
+omega_ex_0 = 1.557/hbar
+rabi = (3.8 * 1e-3)/hbar
 n0 = 3.857
 k1 = 0
 
@@ -155,12 +155,10 @@ m_e = 0.067 * 9.10938356e-31
 a_b = 10e-9
 a_h = 2.7
 a_e = -7
-V = np.pi * lz * (L)**2
-V = 2*np.pi*L
+V = np.pi * lz * (8e-6)**2
 
-
-k2 = np.linspace(-100,100,7001) * 1e6
-k1 = np.linspace(-100,100,7001) * 1e6
+k2 = np.linspace(-10,10,1001)
+k1 = np.linspace(-10,10,1001)
 rates = np.zeros((len(k1),len(k2)), dtype = float)
 
 
@@ -171,29 +169,21 @@ for i in range(len(k2)):
         rate = scatter_rate(omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), qz, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
         if np.isnan(rate):
             rate = 0
+        if rate == 0:
+            rates[i,j] = 0
         else:
-            rates[i,j] = rate * hbar
-        #print(i,'/',len(k2) - 1)
-        #print(j,'/',len(k1))
-    print(i,'/',len(k2) - 1)
+            rates[i,j] = rate
+        print(i,'/1001')
+        print(j,'/1001')
         
-plt.pcolor(k2, k1, ((rates)))#/(max(max(x) for x in rates)) * 256))
-plt.xlabel(r'$k_{2}$ ($m^{-1}$)')
-plt.ylabel(r'$k_{1}$ ($m^{-1}$)')
-plt.title('Phonon-Polariton Scattering Rates')
-cbar = plt.colorbar()
-cbar.set_label('Scattering Rate (eV)')
-plt.show()
+plt.pcolor(k2, k1, ((rates)/(max(max(x) for x in rates)) * 256))
+
 
     
     
     
     
-'''
-E1,dum = PDis(k1[j], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        E2,dum = PDis(k2[i], lz, 1, n0, rabi, omega_ex_0, upflag = 0)
-        qz = (((E2-E1)/(hbar*u))**2 - (k1[j]-k2[i])**2)**0.5
-'''
+
 
     
 

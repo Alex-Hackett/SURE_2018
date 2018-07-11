@@ -90,6 +90,7 @@ def XFrac(rabi, pol_E):
     the rabi splitting and the polariton energy at some K (use the polarition
     dispersion function to acquire this)
     '''
+    
     return 2/(np.sqrt(4 + (abs((pol_E)/(rabi)))**2))
 
 
@@ -140,8 +141,8 @@ def scatter_rate(omega_ex_0, rabi, n0, k1, k2, qz, L, lz, u, rho, m_e, m_h, a_b,
 
 #Defining Constants according to KMC paper
     
-omega_ex_0 = (1.557 * 1e-3)/hbar
-rabi = (10 * 1e-3)/hbar
+omega_ex_0 = (1.557)
+rabi = (10 * 1e-3)
 n0 = 3.857
 k1 = 0
 
@@ -156,11 +157,11 @@ a_b = 10e-9
 a_h = 2.7
 a_e = -7
 V = np.pi * lz * (L)**2
-V = 2*np.pi*L
 
 
-k2 = np.linspace(-100,100,7001) * 1e6
-k1 = np.linspace(-100,100,7001) * 1e6
+
+k2 = np.linspace(-10,10,71) * 1e6
+k1 = np.linspace(-10,10,71) * 1e6
 rates = np.zeros((len(k1),len(k2)), dtype = float)
 
 
@@ -170,22 +171,24 @@ for i in range(len(k2)):
         qz = abs(abs(k2[i]) - abs(k1[j]))
         rate = scatter_rate(omega_ex_0, rabi, n0, abs(k1[j]), abs(k2[i]), qz, L, lz, u, rho, m_e, m_h, a_b, a_e, a_h, V)
         if np.isnan(rate):
-            rate = 0
+            rate = np.nan
         else:
             rates[i,j] = rate * hbar
         #print(i,'/',len(k2) - 1)
         #print(j,'/',len(k1))
     print(i,'/',len(k2) - 1)
-        
+
+ 
 plt.pcolor(k2, k1, ((rates)))#/(max(max(x) for x in rates)) * 256))
 plt.xlabel(r'$k_{2}$ ($m^{-1}$)')
 plt.ylabel(r'$k_{1}$ ($m^{-1}$)')
+plt.xlim(-10e6,10e6)
+plt.ylim(-10e6,10e6)
 plt.title('Phonon-Polariton Scattering Rates')
 cbar = plt.colorbar()
 cbar.set_label('Scattering Rate (eV)')
 plt.show()
 
-    
     
     
     
