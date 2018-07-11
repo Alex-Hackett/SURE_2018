@@ -29,7 +29,7 @@ m0 = 9.10938356e-31
 u = 4810
 #--------------------------------------------------
 num_sites = 50
-num_steps = 1000
+num_steps = 10
 temp = 20
 k_values = np.linspace(0,1000000,100)
 gamma = 10e-6 / hbar #Polariton Decay Rate in the Cavity
@@ -54,7 +54,7 @@ class nLevelKMC:
     def initializeStates(self, state = 'gs'):
         if state == 'gs':
             for i in range(len(self.sites)):
-                self.sites[i] = 0
+                self.sites[i] = 70
         elif state == 'nonRes':
             for i in range(len(self.sites)):
                 self.sites[i] = len(k_values) - 1
@@ -117,8 +117,8 @@ class nLevelKMC:
             self.selectEvent()
             self.executeEvent()
             self.advanceTime()
-            if i < 10:
-                self.nonResPump(1)#int(random()*10))
+            #if i < 10:
+            #    self.nonResPump(1)#int(random()*10))
             self.stateCounter()
             self.trackConfig()
 
